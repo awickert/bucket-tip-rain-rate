@@ -60,3 +60,6 @@ target/
 *.csv
 *.xls
 *.xlsx
+
+# Temporary files
+*~
