@@ -5,24 +5,30 @@ Started by Andrew Wickert 30 JUL 11, working with Francis Rengers
 For finding rain intensities over a given window
 """
 
-from __future__ import division
-
 import time
 import csv
 import datetime
 import numpy as np
 import sys
+import os
 from matplotlib import pyplot as plt
+from openpyxl import load_workbook
 
-filename = sys.argv[1]
+filepath = sys.argv[1]
 window = float(sys.argv[2]) # minutes
 
+# Window
 halfwin=window/2.
 halfwin*=60
 dt=5 # minutes
 dt*=60 # convert to seconds
 
-rainread = csv.reader(open(filename,'rb'), delimiter=',')
+
+
+filename = os.path.split(filepath)[-1]
+fileext = os.path.splitext(filepath)[-1]
+
+rainread = csv.reader(open(filepath,'rb'), delimiter=',')
 
 # Create a vector of time stamps
 tiptimes=[]
