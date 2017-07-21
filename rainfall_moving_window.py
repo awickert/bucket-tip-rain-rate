@@ -201,7 +201,26 @@ outdata = np.vstack(rainfall_rate_in_window).transpose()
 plt.figure(figsize=(12,5))
 plt.plot(mwtimes, rainfall_rate_in_window)
 plt.xticks( rotation = 45 )
-plt.ylabel('Rainfal rate [mm/hr]\n'+str(window)+'-minute moving window')
+if window < 60:
+  ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window)+'-minute moving window'
+elif window < 3600:
+  ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window/60)+'-hour '
+  if window % 60 == 0:
+    ylabel_str += 'moving window'
+  else:
+    ylabel_str += str(window%60)+'-minute moving window'
+else:
+  ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window/3600)+'-day '
+  if window % 3600 == 0:
+    ylabel_str += 'moving window'
+  else:
+    ylabel_str += str((window%3600)/60)+'-hour '
+    if window % 60 == 0:
+      ylabel_str += 'moving window'
+    else:
+      ylabel_str += str(window%60)+'-minute moving window'
+  
+plt.ylabel(ylabelstr)
 plt.tight_layout()
 #plt.savefig(outname+'.png')
 plt.show()
