@@ -5,28 +5,17 @@ Started by Andrew Wickert 30 JUL 11, working with Francis Rengers
 For finding rain intensities over a given window
 """
 
-from __future__ import division
-
-import time
-import csv
-import datetime
-import numpy as np
-import sys
-from matplotlib import pyplot as plt
-import os
-import argparse
-
 ##########
 # PARSER #
 ##########
+
+import argparse
 
 parser = argparse.ArgumentParser(description= \
         'Compute rainfall rate with time from tipping-bucket rain gauge data.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 requiredArgs = parser.add_argument_group('required arguments')
-
-window = 60. # default
 
 # REQUIRED
 requiredArgs.add_argument('-i', '--infile', type=str, default=argparse.SUPPRESS,
@@ -44,18 +33,31 @@ parser.add_argument('-p', '--outplot', type=str, nargs=1, default=None,
                     help='output plot filename, including extension')
 parser.add_argument('-w', '--window', type=float, nargs=1, default=60,
                     help='smoothing window duration [minutes]')
-parser.add_argument('-t', '--ts', type=float, nargs=1,default=window/2,
-                    help='Time step for moving window; \
-                    defaults to (window/2)')
+parser.add_argument('-t', '--ts', type=float, nargs=1,default=argparse.SUPPRESS,
+                    help='Time step for moving window; (defaults to window \
+                          length, but can be shorter to smooth output)')
 parser.add_argument('-d', action='store_true',
                     help='Set flag to display plot')
 
+args = parser.parse_args()
+
+##################
+# IMPORT MODULES #
+##################
+
+import time
+import csv
+import datetime
+import numpy as np
+import sys
+from matplotlib import pyplot as plt
+import os
+import pandas as pd
 
 ###############################
 # SEND ARGUMENTS TO VARIABLES #
 ###############################
 
-args = parser.parse_args()
 args = vars(args)
 
 # REQUIRED
@@ -82,18 +84,33 @@ if type(args['window']) != list:
   window = args['window']
 else:
   window = args['window'][0]
-if type(args['ts']) != list:
-  dt = args['ts']
-else:
-  dt = args['ts'][0]
+try:
+  if type(args['ts']) != list:
+    dt = args['ts']
+  else:
+    dt = args['ts'][0]
+except:
+  dt = window
 displayPlot = args['d']
 
 halfwin=np.timedelta64(datetime.timedelta(minutes=window/2.))
 #halfwin*=60
+dt_scalar_minutes = dt
 dt=np.timedelta64(datetime.timedelta(minutes=dt)) # minutes
 #dt*=60 # convert to seconds
 
+###########################################
+# CHECK THAT AN OUTPUT OPTION IS SELECTED #
+###########################################
+
+if outplot or outfile or displayPlot:
+  pass
+else:
+  sys.exit("Please choose one or more output option: --outplot, --outfile, -d")
+
 rainread = csv.reader(open(filename,'rb'), delimiter=',')
+
+print ""
 
 if logger == 'hobo':
   print "Reading Onset Hobo logger file..."
@@ -113,15 +130,19 @@ if logger == 'hobo':
   elif ' units ' in rain_header:
     rain_units = 'inches'
     print "*** WARNING ***"
-    print "Units not recorded in HOBO header"
-    print "Assuming 0.01 inches per bucket tip"
+    print "    Units not recorded in HOBO header"
+    print "    Assuming 0.01 inches per bucket tip"
     rain_amount_per_tip = 0.01
     conversion_to_mm = 25.4
     mm_per_tip = rain_amount_per_tip * conversion_to_mm
   else:
     sys.exit("Unknown units")
+  # Add code sections in the future to use these for concatenation of
+  # files and/or file naming?
   logger_serial_number = rain_header.split(',')[2].split(' ')[-1]
   logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
+  print "*** WARNING: Hobo declares time based on GMT, but it is assumed"
+  print "    that they mean UTC (no DST) ***"
   # Assuming HOBO means UTC instead of GMT, as basing time off of somewhere
   # with DST would be stupid -- should double-check this
   time_offset_from_UTC = secondline[1].split(', ')[-1]
@@ -163,6 +184,7 @@ lasttip = tiptimes[-1]
 mwtimes = np.arange(firsttip + halfwin, \
                     lasttip - (halfwin + dt), \
                     dt)
+mwtimes_datetime = mwtimes.astype(datetime.datetime)
 totaltime = lasttip - \
             halfwin + dt - \
             ( firsttip + halfwin )
@@ -182,46 +204,65 @@ for t in mwtimes:
 if next2percent <= 100:
   print 100, '%'
 
-rainfall_rate_in_window = np.array(tipsInWin) * tipsize_mm
+# Rain rate in mm/hr
+dt_hours = dt_scalar_minutes/60.
+rainfall_rate_in_window = np.array(tipsInWin) * tipsize_mm / dt_hours
 
 ##########
 # OUTPUT #
 ##########
 
-localname = os.path.split(filename)[-1]
-basename = os.path.splitext(localname)[0]
-outname = basename + '__'+str(window)+'_minute_moving_window'
-outdata = np.vstack(rainfall_rate_in_window).transpose()
+#localname = os.path.split(filename)[-1]
+#basename = os.path.splitext(localname)[0]
+#outname = basename + '__'+str(window)+'_minute_moving_window'
+#outdata = np.vstack(rainfall_rate_in_window).transpose()
 #np.savetxt(outname+'.txt', outdata)
+if outfile:
+  outUnixtime = []
+  for _t in mwtimes_datetime:
+    outUnixtime.append(int(time.mktime(datetime.datetime.timetuple(
+                       mwtimes_datetime[0]))))
+  outUnixtime = np.array(outUnixtime)
+  outdict = {'Time [UTC]' : mwtimes_datetime,
+             'Time [Unix timestamp]' : outUnixtime,
+             'Rainfall rate [mm/hr]' : rainfall_rate_in_window}
+  outdata = pd.DataFrame(outdict)
+  outdata.to_csv(outfile, header=True, index=False, encoding='ascii',
+                 columns=['Time [Unix timestamp]', 'Time [UTC]', 
+                          'Rainfall rate [mm/hr]'])
 
 ########
 # PLOT #
 ########
 
-plt.figure(figsize=(12,5))
-plt.plot(mwtimes, rainfall_rate_in_window)
-plt.xticks( rotation = 45 )
-if window < 60:
-  ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window)+'-minute moving window'
-elif window < 3600:
-  ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window/60)+'-hour '
-  if window % 60 == 0:
-    ylabel_str += 'moving window'
-  else:
-    ylabel_str += str(window%60)+'-minute moving window'
-else:
-  ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window/3600)+'-day '
-  if window % 3600 == 0:
-    ylabel_str += 'moving window'
-  else:
-    ylabel_str += str((window%3600)/60)+'-hour '
+if outplot or displayPlot:
+  plt.figure(figsize=(12,5))
+  plt.plot(mwtimes_datetime, rainfall_rate_in_window)
+  plt.xticks( rotation = 45 )
+  if window < 60:
+    ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window)+'-minute window'
+  elif window < 1440:
+    ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window/60)+'-hour '
     if window % 60 == 0:
-      ylabel_str += 'moving window'
+      ylabel_str += 'window'
     else:
-      ylabel_str += str(window%60)+'-minute moving window'
-  
-plt.ylabel(ylabelstr)
-plt.tight_layout()
-#plt.savefig(outname+'.png')
-plt.show()
+      ylabel_str += str(window%60)+'-minute window'
+  else:
+    ylabel_str = 'Rainfal rate [mm/hr]\n'+str(window/1440)+'-day '
+    if window % 1440 == 0:
+      ylabel_str += 'window'
+    else:
+      ylabel_str += str((window%1440)/60)+'-hour '
+      if window % 60 == 0:
+        ylabel_str += 'window'
+      else:
+        ylabel_str += str(window%60)+'-minute window'
+  if dt_scalar_minutes != window:
+    ylabel_str += '\n'+str(int(dt_scalar_minutes))+'-minute moving window steps'
+  plt.ylabel(ylabel_str, fontsize=16)
+  plt.tight_layout()
+  if outplot:
+    plt.savefig(outplot)
+  if displayPlot:
+    plt.show()
 
