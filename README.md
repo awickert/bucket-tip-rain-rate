@@ -12,6 +12,8 @@ Where, as one might expect, $FILENAME is the name of the file with the time-stam
 
 ### Time-stamp file configuration
 
+*Temporarily, the code reads only files that include many other columns and also read temperature. This should be generalized/fixed -- 2016.07.05*
+
 This program is currently configured to process ONSET Hobo rain gauge time stamps, like:
 ```
 21.0,10/12/10 09:44:53 AM,19.0
