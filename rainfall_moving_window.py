@@ -133,7 +133,6 @@ if logger == 'hobo':
     print "    Assuming 0.01 inches per bucket tip"
     rain_amount_per_tip = 0.01
     conversion_to_mm = 25.4
-    rain_amount_per_tip = rain_amount_per_tip * conversion_to_mm
   elif ' mm ' in rain_header:
     rain_units = 'mm'
     rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
