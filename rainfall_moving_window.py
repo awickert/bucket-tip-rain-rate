@@ -33,6 +33,8 @@ args = parser.parse_args()
 args = vars(args)
 if type(args['window']) != float:
   window = args['window'][0]
+else:
+  window = args['window']
 
 parser.add_argument('--ts', type=float, nargs=1,default=window/2,
                     help='Time step for moving window; \
@@ -45,12 +47,13 @@ filename = args['filename'][0]
 logger = args['logger'][0]
 if type(args['ts']) != float:
   dt = args['ts'][0]
+else:
+  dt = args['ts']
 
-
-halfwin=window/2.
-halfwin*=60
-dt=window/2. # minutes
-dt*=60 # convert to seconds
+halfwin=np.timedelta64(datetime.timedelta(minutes=window/2.))
+#halfwin*=60
+dt=np.timedelta64(datetime.timedelta(minutes=dt)) # minutes
+#dt*=60 # convert to seconds
 
 rainread = csv.reader(open(filename,'rb'), delimiter=',')
 
@@ -71,28 +74,36 @@ if logger == 'hobo':
   else:
     sys.exit()
   logger_serial_number = rain_header.split(',')[2].split(' ')[-1]
-  logger_name = rain_header.split(')')[0].split('LBL: ')[-1]
+  logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
+  # Assuming HOBO means UTC instead of GMT, as basing time off of somewhere
+  # with DST would be stupid -- should double-check this
+  time_offset_from_UTC = secondline[1].split(', ')[-1]
+  d_hours = int(time_offset_from_UTC.split('GMT')[1].split(':')[0])
+  time_correction_to_UTC = datetime.timedelta(hours=d_hours)
+  time_correction_to_UTC = np.timedelta64(time_correction_to_UTC)
 else:
   sys.exit()
 
 # Create a vector of time stamps
 tiptimes=[]
 i=0
-for row in rainread:
-  try:
-    tiptime_full = time.strptime(row[1],"%m/%d/%y %I:%M:%S %p")
-    if row[3] != '':
-      # Check if it isn't a temperature measurement
-      # This may have to be changed for purely rain-mesuring Hobo loggers
-      # THE REAL WAY is to look for the column with "event"
-      tiptimes.append(time.mktime(tiptime_full))
-  except:
-    # Probably, you're in the header
-    print "Could not read line "+str(i)+"; header?"
-    pass
-  i+=1
+if logger == 'hobo':
+  for row in rainread:
+    try:
+      if row[rain_column_number] != '':
+        tiptime_full = time.strptime(row[1],"%m/%d/%y %I:%M:%S %p")
+        _date_time = datetime.datetime.fromtimestamp(time.mktime(tiptime_full))
+        _date_time = np.datetime64(_date_time)
+        tiptimes.append(_date_time - time_correction_to_UTC)
+    except:
+      # Probably, you're in the header
+      print "Could not read line "+str(i)+"; header?"
+      pass
+    i+=1
+else:
+  sys.exit()
   
-  # WORRY ABOUT DST LATER!!!!!!!!!!!!!!!
+tiptimes = np.array(tiptimes).astype(np.datetime64)
   
 # Tips are in 1/100 inch
 tipsize_mm = .254
@@ -101,14 +112,14 @@ tipsize_mm = .254
 firsttip = tiptimes[0]
 lasttip = tiptimes[-1]
 
-mwtimes = np.arange(firsttip+halfwin,lasttip-halfwin+dt,dt)
-
-totaltime = lasttip-halfwin+dt - (firsttip+halfwin)
+# Moving window times
+mwtimes = np.arange(firsttip + halfwin, \
+                    lasttip - (halfwin + dt), \
+                    dt)
+totaltime = lasttip - \
+            halfwin + dt - \
+            ( firsttip + halfwin )
 total_time_steps = totaltime / dt
-
-realtimes = []
-for t in mwtimes:
-  realtimes.append(datetime.datetime.fromtimestamp(t))
 
 print "Constructing moving window"
 next2percent = 0
@@ -141,7 +152,7 @@ outdata = np.vstack(rainfall_rate_in_window).transpose()
 ########
 
 plt.figure(figsize=(12,5))
-plt.plot(realtimes, rainfall_rate_in_window)
+plt.plot(mwtimes, rainfall_rate_in_window)
 plt.xticks( rotation = 45 )
 plt.ylabel('Rainfal rate [mm/hr]\n'+str(window)+'-minute moving window')
 plt.tight_layout()
