@@ -57,19 +57,23 @@ rainread = csv.reader(open(filename,'rb'), delimiter=',')
 if logger == 'hobo':
   firstline = rainread.next()[0]
   secondline = rainread.next()
-  site_name = firstline.split("Plot Title: ")[-1]
+  #site_name = firstline.split("Plot Title: ")[-1]
   # Rain column
   rain_header = [s for s in secondline if "Event" in s]
+  rain_header = rain_header[0]
   rain_column_number = np.ravel(np.where(
                        np.array(secondline) == rain_header))[0]
-  if ' in ' in rain_header[0]:
+  if ' in ' in rain_header:
     rain_units = 'inches'
+    rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
     conversion_to_mm = 25.4
-  else
+    mm_per_tip = rain_amount_per_tip * conversion_to_mm
+  else:
     sys.exit()
-
-  logger_serial_number
-  
+  logger_serial_number = rain_header.split(',')[2].split(' ')[-1]
+  logger_name = rain_header.split(')')[0].split('LBL: ')[-1]
+else:
+  sys.exit()
 
 # Create a vector of time stamps
 tiptimes=[]
