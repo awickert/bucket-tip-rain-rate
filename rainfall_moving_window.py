@@ -16,39 +16,77 @@ from matplotlib import pyplot as plt
 import os
 import argparse
 
+##########
+# PARSER #
+##########
+
 parser = argparse.ArgumentParser(description= \
         'Compute rainfall rate with time from tipping-bucket rain gauge data.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+requiredArgs = parser.add_argument_group('required arguments')
+
 window = 60. # default
-parser.add_argument('--filename', type=str, nargs=1, default=argparse.SUPPRESS,
-                    help='ASCII file containing bucket-tip time stamps')
-parser.add_argument('--logger', type=str, nargs=1, default=argparse.SUPPRESS,
+
+# REQUIRED
+requiredArgs.add_argument('-i', '--infile', type=str, default=argparse.SUPPRESS,
+                    help='ASCII file containing bucket-tip time stamps',
+                    required = True)
+requiredArgs.add_argument('-l', '--logger', type=str, nargs=1, default=argparse.SUPPRESS,
                     help='Which type of data logger?',
-                    choices=['alog', 'hobo'])
-parser.add_argument('--window', type=float, nargs=1, default=60,
+                    choices=['alog', 'hobo'],
+                    required = True)
+
+# OPTIONAL
+parser.add_argument('-o', '--outfile', type=str, nargs=1, default=None,
+                    help='output filename')
+parser.add_argument('-p', '--outplot', type=str, nargs=1, default=None,
+                    help='output plot filename, including extension')
+parser.add_argument('-w', '--window', type=float, nargs=1, default=60,
                     help='smoothing window duration [minutes]')
-
-args = parser.parse_args()
-args = vars(args)
-if type(args['window']) != float:
-  window = args['window'][0]
-else:
-  window = args['window']
-
-parser.add_argument('--ts', type=float, nargs=1,default=window/2,
+parser.add_argument('-t', '--ts', type=float, nargs=1,default=window/2,
                     help='Time step for moving window; \
                     defaults to (window/2)')
-                    
+parser.add_argument('-d', action='store_true',
+                    help='Set flag to display plot')
+
+
+###############################
+# SEND ARGUMENTS TO VARIABLES #
+###############################
+
 args = parser.parse_args()
 args = vars(args)
 
-filename = args['filename'][0]
-logger = args['logger'][0]
-if type(args['ts']) != float:
-  dt = args['ts'][0]
+# REQUIRED
+if type(args['infile']) != list:
+  filename = args['infile']
 else:
+  filename = args['infile'][0]
+
+if type(args['logger']) != list:
+  logger = args['logger']
+else:
+  logger = args['logger'][0]
+
+# OPTIONAL
+if type(args['outfile']) != list:
+  outfile = args['outfile']
+else:
+  outfile = args['outfile'][0]
+if type(args['outplot']) != list:
+  outplot = args['outplot']
+else:
+  outplot = args['outplot'][0]
+if type(args['window']) != list:
+  window = args['window']
+else:
+  window = args['window'][0]
+if type(args['ts']) != list:
   dt = args['ts']
+else:
+  dt = args['ts'][0]
+displayPlot = args['d']
 
 halfwin=np.timedelta64(datetime.timedelta(minutes=window/2.))
 #halfwin*=60
@@ -58,6 +96,7 @@ dt=np.timedelta64(datetime.timedelta(minutes=dt)) # minutes
 rainread = csv.reader(open(filename,'rb'), delimiter=',')
 
 if logger == 'hobo':
+  print "Reading Onset Hobo logger file..."
   firstline = rainread.next()[0]
   secondline = rainread.next()
   #site_name = firstline.split("Plot Title: ")[-1]
@@ -71,8 +110,16 @@ if logger == 'hobo':
     rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
     conversion_to_mm = 25.4
     mm_per_tip = rain_amount_per_tip * conversion_to_mm
+  elif ' units ' in rain_header:
+    rain_units = 'inches'
+    print "*** WARNING ***"
+    print "Units not recorded in HOBO header"
+    print "Assuming 0.01 inches per bucket tip"
+    rain_amount_per_tip = 0.01
+    conversion_to_mm = 25.4
+    mm_per_tip = rain_amount_per_tip * conversion_to_mm
   else:
-    sys.exit()
+    sys.exit("Unknown units")
   logger_serial_number = rain_header.split(',')[2].split(' ')[-1]
   logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
   # Assuming HOBO means UTC instead of GMT, as basing time off of somewhere
@@ -82,7 +129,9 @@ if logger == 'hobo':
   time_correction_to_UTC = datetime.timedelta(hours=d_hours)
   time_correction_to_UTC = np.timedelta64(time_correction_to_UTC)
 else:
-  sys.exit()
+  print "Reading Northern Widget ALog (Arduino logger) file..."
+  sys.exit("ALog not written yet")
+tipsize_mm = rain_amount_per_tip * conversion_to_mm
 
 # Create a vector of time stamps
 tiptimes=[]
@@ -105,8 +154,6 @@ else:
   
 tiptimes = np.array(tiptimes).astype(np.datetime64)
   
-# Tips are in 1/100 inch
-tipsize_mm = .254
   
 # Find how many tips there are in a particular window
 firsttip = tiptimes[0]
