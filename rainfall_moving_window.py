@@ -126,7 +126,6 @@ if logger == 'hobo':
     rain_units = 'inches'
     rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
     conversion_to_mm = 25.4
-    mm_per_tip = rain_amount_per_tip * conversion_to_mm
   elif ' units ' in rain_header:
     rain_units = 'inches'
     print "*** WARNING ***"
@@ -134,14 +133,19 @@ if logger == 'hobo':
     print "    Assuming 0.01 inches per bucket tip"
     rain_amount_per_tip = 0.01
     conversion_to_mm = 25.4
-    mm_per_tip = rain_amount_per_tip * conversion_to_mm
+    rain_amount_per_tip = rain_amount_per_tip * conversion_to_mm
+  elif ' mm ' in rain_header:
+    rain_units = 'mm'
+    rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
+    conversion_to_mm = 1.
   else:
     sys.exit("Unknown units")
   # Add code sections in the future to use these for concatenation of
   # files and/or file naming?
   logger_serial_number = rain_header.split(',')[2].split(' ')[-1]
   logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
-  print "*** WARNING: Hobo declares time based on GMT, but it is assumed"
+  print "*** WARNING ***"
+  print "    Hobo declares time based on GMT, but it is assumed"
   print "    that they mean UTC (no DST) ***"
   # Assuming HOBO means UTC instead of GMT, as basing time off of somewhere
   # with DST would be stupid -- should double-check this
@@ -152,7 +156,7 @@ if logger == 'hobo':
 else:
   print "Reading Northern Widget ALog (Arduino logger) file..."
   sys.exit("ALog not written yet")
-tipsize_mm = rain_amount_per_tip * conversion_to_mm
+mm_per_tip = rain_amount_per_tip * conversion_to_mm
 
 # Create a vector of time stamps
 tiptimes=[]
@@ -206,7 +210,7 @@ if next2percent <= 100:
 
 # Rain rate in mm/hr
 dt_hours = dt_scalar_minutes/60.
-rainfall_rate_in_window = np.array(tipsInWin) * tipsize_mm / dt_hours
+rainfall_rate_in_window = np.array(tipsInWin) * mm_per_tip / dt_hours
 
 ##########
 # OUTPUT #
