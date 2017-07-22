@@ -12,7 +12,9 @@ python rainfall_moving_window.py <arguments>
 `-h` i the help flag, and typing `python rainfall_moving_window.py -h` yields the full instructions:
 ```
 usage: rainfall_moving_window.py [-h] -i INFILE -l {alog,hobo} [-o OUTFILE]
-                                 [-p OUTPLOT] [-w WINDOW] [-t TS] [-d]
+                                 [-p OUTPLOT] [-w WINDOW] [-t TS]
+                                 [-s STARTTIME] [-e ENDTIME] [-u {inches,mm}]
+                                 [-r RAIN_PER_TIP] [-d]
 
 Compute rainfall rate with time from tipping-bucket rain gauge data.
 
@@ -27,6 +29,16 @@ optional arguments:
                         smoothing window duration [minutes] (default: 60)
   -t TS, --ts TS        Time step for moving window; (defaults to window
                         length, but can be shorter to smooth output)
+  -s STARTTIME, --starttime STARTTIME
+                        Moving window start time for ALog data logger as a
+                        Unix epoch
+  -e ENDTIME, --endtime ENDTIME
+                        Moving window end time for ALog data logger as a Unix
+                        epoch
+  -u {inches,mm}, --units {inches,mm}
+                        Rain gauge units for ALog data logger
+  -r RAIN_PER_TIP, --rain-per-tip RAIN_PER_TIP
+                        Amount of rain per bucket tip, for ALog data logger
   -d                    Set flag to display plot (default: False)
 
 required arguments:
@@ -47,7 +59,9 @@ This program is currently configured to process ONSET Hobo rain gauge time stamp
 
 ### Processing and assumptions
 
-This program finds the starting and ending time of your rainfall rate, and then truncates the time-series to the nearest whole-number interval after the start and before the end. This is to avoid artificially-low rain rates where the data does not contain the whole time interval.
+For Onset data loggers, this program finds the starting and ending time of your rainfall rate, and then truncates the time-series to the nearest whole-number interval after the start and before the end. This is to avoid artificially-low rain rates where the data does not contain the whole time interval.
+
+For ALog data loggers, you supply the starting and ending time, as well as the amount of water per bucket tip and the units of that amount.
 
 ### Code History
 

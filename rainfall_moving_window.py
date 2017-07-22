@@ -27,15 +27,31 @@ requiredArgs.add_argument('-l', '--logger', type=str, nargs=1, default=argparse.
                     required = True)
 
 # OPTIONAL
-parser.add_argument('-o', '--outfile', type=str, nargs=1, default=None,
+parser.add_argument('-o', '--outfile', type=str, default=None,
                     help='output filename')
-parser.add_argument('-p', '--outplot', type=str, nargs=1, default=None,
+parser.add_argument('-p', '--outplot', type=str, default=None,
                     help='output plot filename, including extension')
-parser.add_argument('-w', '--window', type=float, nargs=1, default=60,
+parser.add_argument('-w', '--window', type=float, default=60,
                     help='smoothing window duration [minutes]')
-parser.add_argument('-t', '--ts', type=float, nargs=1,default=argparse.SUPPRESS,
+parser.add_argument('-t', '--ts', type=float,
+                    default=argparse.SUPPRESS,
                     help='Time step for moving window; (defaults to window \
                           length, but can be shorter to smooth output)')
+parser.add_argument('-s', '--starttime', type=int,
+                    default=argparse.SUPPRESS,
+                    help='Moving window start time for ALog data logger \
+                          as a Unix epoch')
+parser.add_argument('-e', '--endtime', type=int,
+                    default=argparse.SUPPRESS,
+                    help='Moving window end time for ALog data logger \
+                          as a Unix epoch')
+parser.add_argument('-u', '--units', type=str,
+                    default=argparse.SUPPRESS,
+                    help='Rain gauge units for ALog data logger',
+                    choices=['inches', 'mm'])
+parser.add_argument('-r', '--rain-per-tip', type=float,
+                    default=argparse.SUPPRESS,
+                    help='Amount of rain per bucket tip, for ALog data logger')
 parser.add_argument('-d', action='store_true',
                     help='Set flag to display plot')
 
@@ -99,6 +115,33 @@ dt_scalar_minutes = dt
 dt=np.timedelta64(datetime.timedelta(minutes=dt)) # minutes
 #dt*=60 # convert to seconds
 
+########################################################
+# CHECK THAT THE TIME VALUES FOR THE ALOG ARE SELECTED #
+########################################################
+
+if logger == 'alog':
+  try:
+    start_time = args['starttime']
+    end_time = args['endtime']
+  except:
+    sys.exit('Must define "starttime" and "endtime" for the ALog')
+
+if logger == 'alog':
+  try:
+    rain_units = args['units']
+    if rain_units == 'inch':
+      conversion_to_mm = 25.4
+    elif rain_units == 'mm':
+      conversion_to_mm = 1.
+  except:
+    sys.exit('Must define "units" for the ALog')
+
+if logger == 'alog':
+  try:
+    rain_amount_per_tip = args['rain_per_tip']
+  except:
+    sys.exit('Must define "rain-per-tip" for the ALog')
+    
 ###########################################
 # CHECK THAT AN OUTPUT OPTION IS SELECTED #
 ###########################################
@@ -108,11 +151,10 @@ if outplot or outfile or displayPlot:
 else:
   sys.exit("Please choose one or more output option: --outplot, --outfile, -d")
 
-rainread = csv.reader(open(filename,'rb'), delimiter=',')
-
 print ""
 
 if logger == 'hobo':
+  rainread = csv.reader(open(filename,'rb'), delimiter=',')
   print "Reading Onset Hobo logger file..."
   firstline = rainread.next()[0]
   secondline = rainread.next()
@@ -122,7 +164,6 @@ if logger == 'hobo':
   rain_header = [s for s in secondline if "Event" in s]
   if len(rain_header) > 0:
     _simple_event_counter = True
-    print rain_header
     if type(rain_header) == list:
       rain_header = rain_header[0]
     rain_column_number = np.ravel(np.where(
@@ -148,7 +189,6 @@ if logger == 'hobo':
   else:
     _simple_event_counter = False
     rain_header = [s for s in secondline if "Rainfall" in s]
-    print rain_header
     if type(rain_header) == list:
       rain_header = rain_header[0]
     rain_column_number = np.ravel(np.where(
@@ -174,7 +214,7 @@ if logger == 'hobo':
   time_correction_to_UTC = np.timedelta64(time_correction_to_UTC)
 else:
   print "Reading Northern Widget ALog (Arduino logger) file..."
-  sys.exit("ALog not written yet")
+  tiptimesUnix = np.genfromtxt('WS01_bucket_tips.txt', delimiter=',')[:,0]
 
 #########################################################
 # BUCKET TIP TIME STAMPS AND LOGING START AND END TIMES #
@@ -182,10 +222,10 @@ else:
 
 tiptimes = []
 alltimes = []
+i=0
 if logger == 'hobo':
   if _simple_event_counter == False:
     _precip_amount = []
-  i=0
   for row in rainread:
     try:
       alltimes.append(time.strptime(row[1],"%m/%d/%y %I:%M:%S %p"))
@@ -208,12 +248,17 @@ if logger == 'hobo':
       print "Could not read line "+str(i)+"; header?"
       pass
     i+=1
+elif logger == 'alog':
+  for _ts in tiptimesUnix:
+    tiptimes.append(np.datetime64(datetime.datetime.utcfromtimestamp(_ts)))
   
-  # START AND END TIMES -- KEEP ON GOOD HOURS, MINUTES, ETC.
-  # Be conservative: start on the next even dt unit after the start of the
-  # record, and end on the dt unit before the end of the record
-  start_time = datetime.datetime.fromtimestamp(time.mktime(alltimes[0]))
-  end_time = datetime.datetime.fromtimestamp(time.mktime(alltimes[-1]))
+# START AND END TIMES -- KEEP ON GOOD HOURS, MINUTES, ETC.
+# Be conservative: start on the next even dt unit after the start of the
+# record, and end on the dt unit before the end of the record
+if logger == 'alog':
+  start_time = np.datetime64(datetime.datetime.utcfromtimestamp(start_time))
+  end_time = np.datetime64(datetime.datetime.utcfromtimestamp(end_time))
+elif logger == 'hobo':
   if dt.astype(datetime.timedelta) < datetime.timedelta(days = 1):
     _nbreaks_in_day = int(np.floor(1440. / dt_scalar_minutes))
     if _nbreaks_in_day <= 24:
@@ -241,26 +286,34 @@ if logger == 'hobo':
     start_time = start_time.date()
   start_time = np.datetime64(start_time)
   end_time = np.datetime64(end_time)
-  
+elif logger == 'alog':
+  pass # start and end times are from the user
 else:
-  sys.exit()
+  sys.exit("How did you get here??")
 
-if _simple_event_counter == False:
-  rain_amount_per_tip = np.diff(np.array(_precip_amount).astype(float))
-  # crudely deal with floating point issues
-  rain_amount_per_tip = np.round(rain_amount_per_tip, 9)
-  # Check that they are all equal, and if so, convert to a scalar
-  if len(set(rain_amount_per_tip)) == 1:
-    rain_amount_per_tip = rain_amount_per_tip[0]
-  else:
-    sys.exit("Unequal rainfall amounts in tips: check header / contact developer")
+################
+# RAIN PER TIP #
+################
+
+if logger == 'hobo':
+  if _simple_event_counter == False:
+    rain_amount_per_tip = np.diff(np.array(_precip_amount).astype(float))
+    # crudely deal with floating point issues
+    rain_amount_per_tip = np.round(rain_amount_per_tip, 9)
+    # Check that they are all equal, and if so, convert to a scalar
+    if len(set(rain_amount_per_tip)) == 1:
+      rain_amount_per_tip = rain_amount_per_tip[0]
+    else:
+      sys.exit("Unequal rainfall amounts in tips: check header / contact developer")
 
 mm_per_tip = rain_amount_per_tip * conversion_to_mm
+
 
 ##############
 ############## PLACEHOLDER HERE FOR PROBABILITY / STATS ON RAINFALL
 ############## DISTRIBUTION AND EVALUATION OF MINIMUM AVERAGING WINDOW LENGTH
 ##############
+
   
 tiptimes = np.array(tiptimes).astype(np.datetime64)
   
