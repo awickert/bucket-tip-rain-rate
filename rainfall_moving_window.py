@@ -119,7 +119,9 @@ if logger == 'hobo':
   #site_name = firstline.split("Plot Title: ")[-1]
   # Rain column
   rain_header = [s for s in secondline if "Event" in s]
-  rain_header = rain_header[0]
+  print rain_header
+  if type(rain_header) == list:
+    rain_header = rain_header[0]
   rain_column_number = np.ravel(np.where(
                        np.array(secondline) == rain_header))[0]
   if ' in ' in rain_header:
@@ -224,7 +226,7 @@ if outfile:
   outUnixtime = []
   for _t in mwtimes_datetime:
     outUnixtime.append(int(time.mktime(datetime.datetime.timetuple(
-                       mwtimes_datetime[0]))))
+                       mwtimes_datetime[_t]))))
   outUnixtime = np.array(outUnixtime)
   outdict = {'Time [UTC]' : mwtimes_datetime,
              'Time [Unix timestamp]' : outUnixtime,
