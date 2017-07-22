@@ -5,28 +5,49 @@
 ### Running the code
 
 You can run this code by typing (at the terminal window):
+```bash
+python rainfall_moving_window.py <arguments>
 ```
-python rainfall_moving_window.py $FILENAME $WINDOW_LENGTH_MINUTES
+
+`-h` i the help flag, and typing `python rainfall_moving_window.py -h` yields the full instructions:
 ```
-Where, as one might expect, $FILENAME is the name of the file with the time-stamps of the rain gauge bucket tips, and WINDOW_LENGTH_MINUTES is the length of the moving window over which the bucket tips are smoothed into a rain rate.
+usage: rainfall_moving_window.py [-h] -i INFILE -l {alog,hobo} [-o OUTFILE]
+                                 [-p OUTPLOT] [-w WINDOW] [-t TS] [-d]
+
+Compute rainfall rate with time from tipping-bucket rain gauge data.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTFILE, --outfile OUTFILE
+                        output filename (default: None)
+  -p OUTPLOT, --outplot OUTPLOT
+                        output plot filename, including extension (default:
+                        None)
+  -w WINDOW, --window WINDOW
+                        smoothing window duration [minutes] (default: 60)
+  -t TS, --ts TS        Time step for moving window; (defaults to window
+                        length, but can be shorter to smooth output)
+  -d                    Set flag to display plot (default: False)
+
+required arguments:
+  -i INFILE, --infile INFILE
+                        ASCII file containing bucket-tip time stamps
+  -l {alog,hobo}, --logger {alog,hobo}
+                        Which type of data logger?
+```
 
 ### Time-stamp file configuration
 
-*Temporarily, the code reads only files that include many other columns and also read temperature. This should be generalized/fixed -- 2016.07.05*
-
 This program is currently configured to process ONSET Hobo rain gauge time stamps, like:
 ```
-21.0,10/12/10 09:44:53 AM,19.0
-22.0,10/12/10 09:51:25 AM,20.0
+21.0,10/12/10 09:44:53 AM
+22.0,10/12/10 09:51:25 AM
 ...
 ```
 
-Where each row here is:<br>
-```
-[tip count],[date MM/DD/YY] [time HH(12):MM:SS AM/PM],[previous tip count]
-````
+### Processing and assumptions
 
-Additional time-stamp formats can be used by changing (at the time of writing) line 31 of the code.
+This program finds the starting and ending time of your rainfall rate, and then truncates the time-series to the nearest whole-number interval after the start and before the end. This is to avoid artificially-low rain rates where the data does not contain the whole time interval.
 
 ### Code History
 
