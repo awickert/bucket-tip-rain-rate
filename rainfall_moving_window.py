@@ -116,35 +116,53 @@ if logger == 'hobo':
   print "Reading Onset Hobo logger file..."
   firstline = rainread.next()[0]
   secondline = rainread.next()
-  #site_name = firstline.split("Plot Title: ")[-1]
+  Logger_name = firstline.split("Plot Title: ")[-1].split('"')[0]
   # Rain column
+  # Option 1: event counter
   rain_header = [s for s in secondline if "Event" in s]
-  print rain_header
-  if type(rain_header) == list:
-    rain_header = rain_header[0]
-  rain_column_number = np.ravel(np.where(
-                       np.array(secondline) == rain_header))[0]
-  if ' in ' in rain_header:
-    rain_units = 'inches'
-    rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
-    conversion_to_mm = 25.4
-  elif ' units ' in rain_header:
-    rain_units = 'inches'
-    print "*** WARNING ***"
-    print "    Units not recorded in HOBO header"
-    print "    Assuming 0.01 inches per bucket tip"
-    rain_amount_per_tip = 0.01
-    conversion_to_mm = 25.4
-  elif ' mm ' in rain_header:
-    rain_units = 'mm'
-    rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
-    conversion_to_mm = 1.
+  if len(rain_header) > 0:
+    _simple_event_counter = True
+    print rain_header
+    if type(rain_header) == list:
+      rain_header = rain_header[0]
+    rain_column_number = np.ravel(np.where(
+                         np.array(secondline) == rain_header))[0]
+    if ' in ' in rain_header:
+      rain_units = 'inches'
+      rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
+      conversion_to_mm = 25.4
+    elif ' units ' in rain_header:
+      rain_units = 'inches'
+      print "*** WARNING ***"
+      print "    Units not recorded in HOBO header"
+      print "    Assuming 0.01 inches per bucket tip"
+      rain_amount_per_tip = 0.01
+      conversion_to_mm = 25.4
+    elif ' mm ' in rain_header:
+      rain_units = 'mm'
+      rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
+      conversion_to_mm = 1.
+    else:
+      sys.exit("Unknown units")
+  # Option 2: continuous precip counter with certain units
   else:
-    sys.exit("Unknown units")
+    _simple_event_counter = False
+    rain_header = [s for s in secondline if "Rainfall" in s]
+    print rain_header
+    if type(rain_header) == list:
+      rain_header = rain_header[0]
+    rain_column_number = np.ravel(np.where(
+                         np.array(secondline) == rain_header))[0]
+    if ' in ' in rain_header:
+      rain_units = 'inches'
+      conversion_to_mm = 25.4
+    elif ' mm ' in rain_header:
+      rain_units = 'mm'
+      conversion_to_mm = 1.
   # Add code sections in the future to use these for concatenation of
   # files and/or file naming?
-  logger_serial_number = rain_header.split(',')[2].split(' ')[-1]
-  logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
+  logger_serial_number = rain_header.split('LGR S/N: ')[1].split(',')[0]
+  #logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
   print "*** WARNING ***"
   print "    Hobo declares time based on GMT, but it is assumed"
   print "    that they mean UTC (no DST) ***"
@@ -157,10 +175,11 @@ if logger == 'hobo':
 else:
   print "Reading Northern Widget ALog (Arduino logger) file..."
   sys.exit("ALog not written yet")
-mm_per_tip = rain_amount_per_tip * conversion_to_mm
 
 # Create a vector of time stamps
 tiptimes=[]
+if _simple_event_counter == False:
+  _precip_amount = []
 i=0
 if logger == 'hobo':
   for row in rainread:
@@ -169,7 +188,15 @@ if logger == 'hobo':
         tiptime_full = time.strptime(row[1],"%m/%d/%y %I:%M:%S %p")
         _date_time = datetime.datetime.fromtimestamp(time.mktime(tiptime_full))
         _date_time = np.datetime64(_date_time)
-        tiptimes.append(_date_time - time_correction_to_UTC)
+        if _simple_event_counter == True:
+          tiptimes.append(_date_time - time_correction_to_UTC)
+        else:
+          # Only append data if it is recording a new value,
+          # not if it is recording a total value while being read
+          # they make it so complicated!
+          if row[rain_column_number + 1] == '':
+            tiptimes.append(_date_time - time_correction_to_UTC)
+            _precip_amount.append(row[rain_column_number])
     except:
       # Probably, you're in the header
       print "Could not read line "+str(i)+"; header?"
@@ -177,9 +204,25 @@ if logger == 'hobo':
     i+=1
 else:
   sys.exit()
+
+if _simple_event_counter == False:
+  rain_amount_per_tip = np.diff(np.array(_precip_amount).astype(float))
+  # crudely deal with floating point issues
+  rain_amount_per_tip = np.round(rain_amount_per_tip, 9)
+  # Check that they are all equal, and if so, convert to a scalar
+  if len(set(rain_amount_per_tip)) == 1:
+    rain_amount_per_tip = rain_amount_per_tip[0]
+  else:
+    sys.exit("Unequal rainfall amounts in tips: check header / contact developer")
+
+mm_per_tip = rain_amount_per_tip * conversion_to_mm
+
+##############
+############## PLACEHOLDER HERE FOR PROBABILITY / STATS ON RAINFALL
+############## DISTRIBUTION AND EVALUATION OF MINIMUM AVERAGING WINDOW LENGTH
+##############
   
 tiptimes = np.array(tiptimes).astype(np.datetime64)
-  
   
 # Find how many tips there are in a particular window
 firsttip = tiptimes[0]
