@@ -176,15 +176,21 @@ else:
   print "Reading Northern Widget ALog (Arduino logger) file..."
   sys.exit("ALog not written yet")
 
-# Create a vector of time stamps
-tiptimes=[]
-if _simple_event_counter == False:
-  _precip_amount = []
-i=0
+#########################################################
+# BUCKET TIP TIME STAMPS AND LOGING START AND END TIMES #
+#########################################################
+
+tiptimes = []
+alltimes = []
 if logger == 'hobo':
+  if _simple_event_counter == False:
+    _precip_amount = []
+  i=0
   for row in rainread:
     try:
-      if row[rain_column_number] != '':
+      alltimes.append(time.strptime(row[1],"%m/%d/%y %I:%M:%S %p"))
+      if (row[rain_column_number] != '') and \
+          (row[rain_column_number][0] != '0'):
         tiptime_full = time.strptime(row[1],"%m/%d/%y %I:%M:%S %p")
         _date_time = datetime.datetime.fromtimestamp(time.mktime(tiptime_full))
         _date_time = np.datetime64(_date_time)
@@ -202,6 +208,40 @@ if logger == 'hobo':
       print "Could not read line "+str(i)+"; header?"
       pass
     i+=1
+  
+  # START AND END TIMES -- KEEP ON GOOD HOURS, MINUTES, ETC.
+  # Be conservative: start on the next even dt unit after the start of the
+  # record, and end on the dt unit before the end of the record
+  start_time = datetime.datetime.fromtimestamp(time.mktime(alltimes[0]))
+  end_time = datetime.datetime.fromtimestamp(time.mktime(alltimes[-1]))
+  if dt.astype(datetime.timedelta) < datetime.timedelta(days = 1):
+    _nbreaks_in_day = int(np.floor(1440. / dt_scalar_minutes))
+    if _nbreaks_in_day <= 24:
+      _possible_hours = np.arange(0, 24, 24/_nbreaks_in_day)
+      _starting_hour = np.max(_possible_hours
+                              [_possible_hours <= start_time.hour])
+      _ending_hour = np.min(_possible_hours
+                           [_possible_hours >= end_time.hour])
+      start_time = start_time.replace(hour=_starting_hour, minute=0, second=0, 
+                                      microsecond=0)
+      end_time = end_time.replace(hour=_ending_hour, minute=0, second=0, 
+                                  microsecond=0)
+    else:
+      _nbreaks_in_hour = int(np.floor(60. / dt_scalar_minutes))
+      _possible_minutes = np.arange(0, 60, 60/_nbreaks_in_hour)
+      _starting_minute = np.max(_possible_minutes
+                                [_possible_minutes <= start_time.minute])
+      _ending_minute = np.min(_possible_minutes
+                              [_possible_minutes >= end_time.minute])
+      start_time = start_time.replace(minute=_starting_minute, second=0, 
+                                      microsecond=0)
+      end_time = end_time.replace(minute=_ending_minute, second=0, 
+                                  microsecond=0)
+  else:
+    start_time = start_time.date()
+  start_time = np.datetime64(start_time)
+  end_time = np.datetime64(end_time)
+  
 else:
   sys.exit()
 
@@ -268,8 +308,7 @@ rainfall_rate_in_window = np.array(tipsInWin) * mm_per_tip / dt_hours
 if outfile:
   outUnixtime = []
   for _t in mwtimes_datetime:
-    outUnixtime.append(int(time.mktime(datetime.datetime.timetuple(
-                       mwtimes_datetime[_t]))))
+    outUnixtime.append(int(time.mktime(datetime.datetime.timetuple(_t))))
   outUnixtime = np.array(outUnixtime)
   outdict = {'Time [UTC]' : mwtimes_datetime,
              'Time [Unix timestamp]' : outUnixtime,
