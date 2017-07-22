@@ -269,14 +269,9 @@ firsttip = tiptimes[0]
 lasttip = tiptimes[-1]
 
 # Moving window times
-mwtimes = np.arange(firsttip + halfwin, \
-                    lasttip - (halfwin + dt), \
-                    dt)
+mwtimes = np.arange(start_time, end_time+dt/2., dt)
 mwtimes_datetime = mwtimes.astype(datetime.datetime)
-totaltime = lasttip - \
-            halfwin + dt - \
-            ( firsttip + halfwin )
-total_time_steps = totaltime / dt
+total_time_steps = (start_time - end_time) / dt
 
 print "Constructing moving window"
 next2percent = 0
