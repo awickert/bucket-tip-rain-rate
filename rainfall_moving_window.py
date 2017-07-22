@@ -228,11 +228,10 @@ if logger == 'hobo':
     _precip_amount = []
   for row in rainread:
     try:
-      alltimes.append(time.strptime(row[1],"%m/%d/%y %I:%M:%S %p"))
+      alltimes.append(datetime.datetime.strptime(row[1],"%m/%d/%y %I:%M:%S %p"))
       if (row[rain_column_number] != '') and \
           (row[rain_column_number][0] != '0'):
-        tiptime_full = time.strptime(row[1],"%m/%d/%y %I:%M:%S %p")
-        _date_time = datetime.datetime.fromtimestamp(time.mktime(tiptime_full))
+        _date_time = datetime.datetime.strptime(row[1],"%m/%d/%y %I:%M:%S %p")
         _date_time = np.datetime64(_date_time)
         if _simple_event_counter == True:
           tiptimes.append(_date_time - time_correction_to_UTC)
@@ -255,10 +254,9 @@ elif logger == 'alog':
 # START AND END TIMES -- KEEP ON GOOD HOURS, MINUTES, ETC.
 # Be conservative: start on the next even dt unit after the start of the
 # record, and end on the dt unit before the end of the record
-if logger == 'alog':
-  start_time = np.datetime64(datetime.datetime.utcfromtimestamp(start_time))
-  end_time = np.datetime64(datetime.datetime.utcfromtimestamp(end_time))
-elif logger == 'hobo':
+if logger == 'hobo':
+  start_time = alltimes[0]
+  end_time = alltimes[-1]
   if dt.astype(datetime.timedelta) < datetime.timedelta(days = 1):
     _nbreaks_in_day = int(np.floor(1440. / dt_scalar_minutes))
     if _nbreaks_in_day <= 24:
@@ -287,7 +285,8 @@ elif logger == 'hobo':
   start_time = np.datetime64(start_time)
   end_time = np.datetime64(end_time)
 elif logger == 'alog':
-  pass # start and end times are from the user
+  start_time = np.datetime64(datetime.datetime.utcfromtimestamp(start_time))
+  end_time = np.datetime64(datetime.datetime.utcfromtimestamp(end_time))
 else:
   sys.exit("How did you get here??")
 
@@ -322,7 +321,7 @@ firsttip = tiptimes[0]
 lasttip = tiptimes[-1]
 
 # Moving window times
-mwtimes = np.arange(start_time, end_time+dt/2., dt)
+mwtimes = np.arange(start_time+dt/2., end_time, dt)
 mwtimes_datetime = mwtimes.astype(datetime.datetime)
 total_time_steps = (start_time - end_time) / dt
 
