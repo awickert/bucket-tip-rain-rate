@@ -54,7 +54,7 @@ required arguments:
 
 This is a basic example to process 15-minute rainfall intensities from an ALog data logger and create a PDF plot (other file extensions, such as PNG, are also possible). Times of deployment are specified as start and end times; these are required to ensure that the time-series does not show anomylously little rainfall at the start and/or end, and that other bucket tips that may be saved do not affect the final result. The units are specified as hundredths of an inch:
 ```bash
-./rainfall_moving_window.py --infile "INPUT_FILE_PATH" --outfile "OUTPUT_FILE_PATH" --outplot "OUTPUT_PLOT_PATH.pdf" --logger alog --window 15 -s 1484524800 -e 1505575867 -u inches -r 0.01
+python rainfall_moving_window.py --infile "INPUT_FILE_PATH" --outfile "OUTPUT_FILE_PATH" --outplot "OUTPUT_PLOT_PATH.pdf" --logger alog --window 15 -s 1484524800 -e 1505575867 -u inches -r 0.01
 ```
 
 #### Example 2: Batch processing
@@ -67,7 +67,7 @@ do
         echo $fname
         bname=$(basename "$fname")
         bname_no_ext="${bname%.*}"
-        ./rainfall_moving_window.py --infile "$fname" --outfile "hourly_reprocessed_Andy/$bname" --outplot "hourly_reprocessed_Andy/$bname_no_ext.pdf" --logger hobo --window 60
+        python rainfall_moving_window.py --infile "$fname" --outfile "hourly_reprocessed_Andy/$bname" --outplot "hourly_reprocessed_Andy/$bname_no_ext.pdf" --logger hobo --window 60
 done
 ```
 
