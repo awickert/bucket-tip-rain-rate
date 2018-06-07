@@ -14,7 +14,7 @@ python rainfall_moving_window.py <arguments>
 `-h` i the help flag, and typing `python rainfall_moving_window.py -h` yields the full instructions:
 ```
 usage: rainfall_moving_window.py [-h] -i INFILE -l {alog,hobo} [-o OUTFILE]
-                                 [-p OUTPLOT] [-w WINDOW] [-t TS]
+                                 [-b TIPFILE] [-p OUTPLOT] [-w WINDOW] [-t TS]
                                  [-s STARTTIME] [-e ENDTIME] [-u {inches,mm}]
                                  [-r RAIN_PER_TIP] [-d]
 
@@ -23,7 +23,10 @@ Compute rainfall rate with time from tipping-bucket rain gauge data.
 optional arguments:
   -h, --help            show this help message and exit
   -o OUTFILE, --outfile OUTFILE
-                        output filename (default: None)
+                        output binned data filename (default: None)
+  -b TIPFILE, --tipfile TIPFILE
+                        output bucket tip times (unix epoch) filename
+                        (default: None)
   -p OUTPLOT, --outplot OUTPLOT
                         output plot filename, including extension (default:
                         None)

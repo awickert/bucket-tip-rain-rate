@@ -28,7 +28,9 @@ requiredArgs.add_argument('-l', '--logger', type=str, nargs=1, default=argparse.
 
 # OPTIONAL
 parser.add_argument('-o', '--outfile', type=str, default=None,
-                    help='output filename')
+                    help='output binned data filename')
+parser.add_argument('-b', '--tipfile', type=str, default=None,
+                    help='output bucket tip times (unix epoch) filename')
 parser.add_argument('-p', '--outplot', type=str, default=None,
                     help='output plot filename, including extension')
 parser.add_argument('-w', '--window', type=float, default=60,
@@ -92,6 +94,10 @@ if type(args['outfile']) != list:
   outfile = args['outfile']
 else:
   outfile = args['outfile'][0]
+if type(args['tipfile']) != list:
+  tipfile = args['tipfile']
+else:
+  tipfile = args['tipfile'][0]
 if type(args['outplot']) != list:
   outplot = args['outplot']
 else:
@@ -146,10 +152,11 @@ if logger == 'alog':
 # CHECK THAT AN OUTPUT OPTION IS SELECTED #
 ###########################################
 
-if outplot or outfile or displayPlot:
+if outplot or outfile or tipfile or displayPlot:
   pass
 else:
-  sys.exit("Please choose one or more output option: --outplot, --outfile, -d")
+  sys.exit("Please choose one or more output option:\n"+
+            "--outplot, --outfile, --tipfile, -d")
 
 print ""
 
@@ -315,33 +322,40 @@ mm_per_tip = rain_amount_per_tip * conversion_to_mm
 
   
 tiptimes = np.array(tiptimes).astype(np.datetime64)
-  
-# Find how many tips there are in a particular window
-firsttip = tiptimes[0]
-lasttip = tiptimes[-1]
 
-# Moving window times
-mwtimes = np.arange(start_time+dt/2., end_time, dt)
-mwtimes_datetime = mwtimes.astype(datetime.datetime)
-total_time_steps = (start_time - end_time) / dt
 
-print "Constructing moving window"
-next2percent = 0
-tipsInWin = []
-i = 0 # counter
-for t in mwtimes:
-  tipswhen=[i for i in tiptimes if i> t-halfwin and i< t+halfwin]
-  tipsInWin.append(len(tipswhen))
-  if ((t-firsttip)/(lasttip-firsttip))*100 > next2percent:
-    print next2percent, '%'
-    next2percent = np.round((t-firsttip)*100/(lasttip-firsttip)) + 2
-  i += 1
-if next2percent <= 100:
-  print 100, '%'
+#############
+# WINDOWING #
+#############
 
-# Rain rate in mm/hr
-dt_hours = dt_scalar_minutes/60.
-rainfall_rate_in_window = np.array(tipsInWin) * mm_per_tip / dt_hours
+if outplot or outfile or displayPlot:
+
+  # Find how many tips there are in a particular window
+  firsttip = tiptimes[0]
+  lasttip = tiptimes[-1]
+
+  # Moving window times
+  mwtimes = np.arange(start_time+dt/2., end_time, dt)
+  mwtimes_datetime = mwtimes.astype(datetime.datetime)
+  total_time_steps = (start_time - end_time) / dt
+
+  print "Constructing moving window"
+  next2percent = 0
+  tipsInWin = []
+  i = 0 # counter
+  for t in mwtimes:
+    tipswhen=[i for i in tiptimes if i> t-halfwin and i< t+halfwin]
+    tipsInWin.append(len(tipswhen))
+    if ((t-firsttip)/(lasttip-firsttip))*100 > next2percent:
+      print next2percent, '%'
+      next2percent = np.round((t-firsttip)*100/(lasttip-firsttip)) + 2
+    i += 1
+  if next2percent <= 100:
+    print 100, '%'
+
+  # Rain rate in mm/hr
+  dt_hours = dt_scalar_minutes/60.
+  rainfall_rate_in_window = np.array(tipsInWin) * mm_per_tip / dt_hours
 
 ##########
 # OUTPUT #
@@ -364,6 +378,9 @@ if outfile:
   outdata.to_csv(outfile, header=True, index=False, encoding='ascii',
                  columns=['Time [Unix timestamp]', 'Time [UTC]', 
                           'Rainfall rate [mm/hr]'])
+                          
+if tipfile:
+  np.savetxt(tipfile, tiptimes.astype('datetime64[s]').astype('int'), fmt='%s')
 
 ########
 # PLOT #
