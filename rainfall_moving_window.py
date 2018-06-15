@@ -48,11 +48,11 @@ parser.add_argument('-e', '--endtime', type=int,
                     help='Moving window end time for ALog data logger \
                           as a Unix epoch')
 parser.add_argument('-u', '--units', type=str,
-                    default=argparse.SUPPRESS,
+                    default=None,
                     help='Rain gauge units for ALog data logger',
                     choices=['inches', 'mm'])
 parser.add_argument('-r', '--rain-per-tip', type=float,
-                    default=argparse.SUPPRESS,
+                    default=None,
                     help='Amount of rain per bucket tip, for ALog data logger')
 parser.add_argument('-d', action='store_true',
                     help='Set flag to display plot')
@@ -72,11 +72,28 @@ from matplotlib import pyplot as plt
 import os
 import pandas as pd
 
+####################
+# ARGUMENT PARSING #
+####################
+
+args = vars(args)
+
+################################
+# UNASSIGNED VARS TO NONE-TYPE #
+################################
+
+"""
+for key in args.keys():
+  try:
+    args[key]
+  except:
+    args[key] = None
+"""
+rain_amount_per_tip = None
+
 ###############################
 # SEND ARGUMENTS TO VARIABLES #
 ###############################
-
-args = vars(args)
 
 # REQUIRED
 if type(args['infile']) != list:
@@ -180,17 +197,40 @@ if logger == 'hobo':
       rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
       conversion_to_mm = 25.4
     elif ' units ' in rain_header:
-      rain_units = 'inches'
-      print "*** WARNING ***"
-      print "    Units not recorded in HOBO header"
-      print "    Assuming 0.01 inches per bucket tip"
-      rain_amount_per_tip = 0.01
+      if (rain_units is None) or (rain_units is 'inches'):
+        print 'Reading units as "inches" based off of header'
+        print '(Onset typically specifies mm but often leaves blank if inches)'
+        rain_units = 'inches'
+      else:
+        sys.exit('Units given by user do not match those in header\n'
+                 '(Onset typically specifies mm but often leaves blank if inches)')
+      if args['rain_per_tip'] is not None:
+        print "User-specified amount of rain [inches] per bucket tip"
+        print args['rain_per_tip'], rain_units
+        rain_amount_per_tip = args['rain_per_tip']
+      else:
+        print "*** WARNING ***"
+        print "    Units not recorded in HOBO header"
+        print "    Assuming 0.01 inches per bucket tip"
+        rain_amount_per_tip = 0.01
       conversion_to_mm = 25.4
     elif ' mm ' in rain_header:
       rain_units = 'mm'
       rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
       conversion_to_mm = 1.
+    elif args['units'] is not None:
+      print 'units'
+      rain_units = args['units']
+      if rain_units is 'inches':
+        conversion_to_mm = 25.4
+      else:
+        conversion_to_mm = 1.
+      if args['rain_per_tip'] is not None:
+        rain_amount_per_tip = args['rain_per_tip']
+      else:
+        sys.exit('Need to specify amount of rainfall per bucket tip')
     else:
+      print args['units']
       sys.exit("Unknown units")
   # Option 2: continuous precip counter with certain units
   else:
@@ -208,7 +248,10 @@ if logger == 'hobo':
       conversion_to_mm = 1.
   # Add code sections in the future to use these for concatenation of
   # files and/or file naming?
-  logger_serial_number = rain_header.split('LGR S/N: ')[1].split(',')[0]
+  try:
+    logger_serial_number = rain_header.split('LGR S/N: ')[1].split(',')[0]
+  except:
+    logger_serial_number = ''
   #logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
   print "*** WARNING ***"
   print "    Hobo declares time based on GMT, but it is assumed"
@@ -303,14 +346,16 @@ else:
 
 if logger == 'hobo':
   if _simple_event_counter == False:
-    rain_amount_per_tip = np.diff(np.array(_precip_amount).astype(float))
-    # crudely deal with floating point issues
-    rain_amount_per_tip = np.round(rain_amount_per_tip, 9)
-    # Check that they are all equal, and if so, convert to a scalar
-    if len(set(rain_amount_per_tip)) == 1:
-      rain_amount_per_tip = rain_amount_per_tip[0]
-    else:
-      sys.exit("Unequal rainfall amounts in tips: check header / contact developer")
+    if rain_amount_per_tip is None:
+      print "Provided rain per tip will overwrite that given in table, if any"
+      rain_amount_per_tip = np.diff(np.array(_precip_amount).astype(float))
+      # crudely deal with floating point issues
+      rain_amount_per_tip = np.round(rain_amount_per_tip, 9)
+      # Check that they are all equal, and if so, convert to a scalar
+      if len(set(rain_amount_per_tip)) == 1:
+        rain_amount_per_tip = rain_amount_per_tip[0]
+      else:
+        sys.exit("Unequal rainfall amounts in tips: check header / contact developer")
 
 mm_per_tip = rain_amount_per_tip * conversion_to_mm
 
