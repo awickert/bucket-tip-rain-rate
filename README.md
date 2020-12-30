@@ -103,4 +103,4 @@ For ALog data loggers, you supply the starting and ending time, as well as the a
 
 ### Code History
 
-This code was originally written on July 30th, 2011, in Boulder, CO, to help process rain gauge data from West Bijou Creek on the Colorado High Plins. As of 14 Feburary 2016, it existed in its near-original form. It was significantly revised to work with multiple raw rain gauge file outputs and with added documentation in July 2017. Some documentation was added in September 2017.
+This code was originally written on July 30th, 2011, in Boulder, CO, to help process rain gauge data from West Bijou Creek on the Colorado High Plins. As of 14 Feburary 2016, it existed in its near-original form. It was significantly revised to work with multiple raw rain gauge file outputs and with added documentation in July 2017. Some documentation was added in September 2017. In December 2020, it was updated for Python 3 compatibility.
