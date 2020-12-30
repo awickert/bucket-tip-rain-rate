@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """
 Started by Andrew Wickert 30 JUL 11, working with Francis Rengers
@@ -90,6 +90,7 @@ for key in args.keys():
     args[key] = None
 """
 rain_amount_per_tip = None
+rain_units = None
 
 ###############################
 # SEND ARGUMENTS TO VARIABLES #
@@ -175,13 +176,13 @@ else:
   sys.exit("Please choose one or more output option:\n"+
             "--outplot, --outfile, --tipfile, -d")
 
-print ""
+print( "" )
 
 if logger == 'hobo':
-  rainread = csv.reader(open(filename,'rb'), delimiter=',')
-  print "Reading Onset Hobo logger file..."
-  firstline = rainread.next()[0]
-  secondline = rainread.next()
+  rainread = csv.reader(open(filename,'r'), delimiter=',')
+  print( "Reading Onset Hobo logger file..." )
+  firstline = next(rainread)[0]
+  secondline = next(rainread)
   Logger_name = firstline.split("Plot Title: ")[-1].split('"')[0]
   # Rain column
   # Option 1: event counter
@@ -198,20 +199,20 @@ if logger == 'hobo':
       conversion_to_mm = 25.4
     elif ' units ' in rain_header:
       if (rain_units is None) or (rain_units is 'inches'):
-        print 'Reading units as "inches" based off of header'
-        print '(Onset typically specifies mm but often leaves blank if inches)'
+        print( 'Reading units as "inches" based off of header' )
+        print( '(Onset typically specifies mm but often leaves blank if inches)' )
         rain_units = 'inches'
       else:
         sys.exit('Units given by user do not match those in header\n'
                  '(Onset typically specifies mm but often leaves blank if inches)')
       if args['rain_per_tip'] is not None:
-        print "User-specified amount of rain [inches] per bucket tip"
-        print args['rain_per_tip'], rain_units
+        print( "User-specified amount of rain [inches] per bucket tip" )
+        print( args['rain_per_tip'], rain_units )
         rain_amount_per_tip = args['rain_per_tip']
       else:
-        print "*** WARNING ***"
-        print "    Units not recorded in HOBO header"
-        print "    Assuming 0.01 inches per bucket tip"
+        print( "*** WARNING ***" )
+        print( "    Units not recorded in HOBO header" )
+        print( "    Assuming 0.01 inches per bucket tip" )
         rain_amount_per_tip = 0.01
       conversion_to_mm = 25.4
     elif ' mm ' in rain_header:
@@ -219,7 +220,7 @@ if logger == 'hobo':
       rain_amount_per_tip = float(rain_header.split(',')[1].split(' ')[1])
       conversion_to_mm = 1.
     elif args['units'] is not None:
-      print 'units'
+      print( 'units' )
       rain_units = args['units']
       if rain_units is 'inches':
         conversion_to_mm = 25.4
@@ -230,7 +231,7 @@ if logger == 'hobo':
       else:
         sys.exit('Need to specify amount of rainfall per bucket tip')
     else:
-      print args['units']
+      print( args['units'] )
       sys.exit("Unknown units")
   # Option 2: continuous precip counter with certain units
   else:
@@ -253,9 +254,9 @@ if logger == 'hobo':
   except:
     logger_serial_number = ''
   #logger_name = secondline[-1].split(')')[0].split('S/N: ')[-1]
-  print "*** WARNING ***"
-  print "    Hobo declares time based on GMT, but it is assumed"
-  print "    that they mean UTC (no DST) ***"
+  print( "*** WARNING ***" )
+  print( "    Hobo declares time based on GMT, but it is assumed" )
+  print( "    that they mean UTC (no DST) ***" )
   # Assuming HOBO means UTC instead of GMT, as basing time off of somewhere
   # with DST would be stupid -- should double-check this
   time_offset_from_UTC = secondline[1].split(', ')[-1]
@@ -263,7 +264,7 @@ if logger == 'hobo':
   time_correction_to_UTC = datetime.timedelta(hours=d_hours)
   time_correction_to_UTC = np.timedelta64(time_correction_to_UTC)
 else:
-  print "Reading Northern Widget ALog (Arduino logger) file..."
+  print( "Reading Northern Widget ALog (Arduino logger) file..." )
   tiptimesUnix = np.genfromtxt('WS01_bucket_tips.txt', delimiter=',')[:,0]
 
 #########################################################
@@ -294,7 +295,7 @@ if logger == 'hobo':
             _precip_amount.append(row[rain_column_number])
     except:
       # Probably, you're in the header
-      print "Could not read line "+str(i)+"; header?"
+      print( "Could not read line "+str(i)+"; header?" )
       pass
     i+=1
 elif logger == 'alog':
@@ -322,10 +323,10 @@ if logger == 'hobo':
     else:
       _nbreaks_in_hour = int(np.floor(60. / dt_scalar_minutes))
       _possible_minutes = np.arange(0, 60, 60/_nbreaks_in_hour)
-      _starting_minute = np.max(_possible_minutes
-                                [_possible_minutes <= start_time.minute])
-      _ending_minute = np.min(_possible_minutes
-                              [_possible_minutes >= end_time.minute])
+      _starting_minute = int( np.max(_possible_minutes
+                                [_possible_minutes <= start_time.minute]) )
+      _ending_minute = int( np.min(_possible_minutes
+                              [_possible_minutes >= end_time.minute]) )
       start_time = start_time.replace(minute=_starting_minute, second=0, 
                                       microsecond=0)
       end_time = end_time.replace(minute=_ending_minute, second=0, 
@@ -347,7 +348,7 @@ else:
 if logger == 'hobo':
   if _simple_event_counter == False:
     if rain_amount_per_tip is None:
-      print "Provided rain per tip will overwrite that given in table, if any"
+      print( "Provided rain per tip will overwrite that given in table, if any" )
       rain_amount_per_tip = np.diff(np.array(_precip_amount).astype(float))
       # crudely deal with floating point issues
       rain_amount_per_tip = np.round(rain_amount_per_tip, 9)
@@ -384,7 +385,7 @@ if outplot or outfile or displayPlot:
   mwtimes_datetime = mwtimes.astype(datetime.datetime)
   total_time_steps = (start_time - end_time) / dt
 
-  print "Constructing moving window"
+  print( "Constructing moving window" )
   next2percent = 0
   tipsInWin = []
   i = 0 # counter
@@ -392,11 +393,11 @@ if outplot or outfile or displayPlot:
     tipswhen=[i for i in tiptimes if i> t-halfwin and i< t+halfwin]
     tipsInWin.append(len(tipswhen))
     if ((t-firsttip)/(lasttip-firsttip))*100 > next2percent:
-      print next2percent, '%'
+      print( next2percent, '%' )
       next2percent = np.round((t-firsttip)*100/(lasttip-firsttip)) + 2
     i += 1
   if next2percent <= 100:
-    print 100, '%'
+    print( 100, '%' )
 
   # Rain rate in mm/hr
   dt_hours = dt_scalar_minutes/60.
