@@ -133,8 +133,9 @@ except:
   dt = window
 displayPlot = args['d']
 
-halfwin=np.timedelta64(datetime.timedelta(minutes=window/2.))
+#halfwin=np.timedelta64(datetime.timedelta(minutes=window/2.))
 #halfwin*=60
+halfwin_seconds = window/2.*60
 dt_scalar_minutes = dt
 dt=np.timedelta64(datetime.timedelta(minutes=dt)) # minutes
 #dt*=60 # convert to seconds
@@ -367,8 +368,7 @@ mm_per_tip = rain_amount_per_tip * conversion_to_mm
 ##############
 
   
-tiptimes = np.array(tiptimes).astype(np.datetime64)
-
+tiptimes_unix = (np.array(tiptimes).astype(int)/1E6).astype(int)
 
 #############
 # WINDOWING #
@@ -377,24 +377,25 @@ tiptimes = np.array(tiptimes).astype(np.datetime64)
 if outplot or outfile or displayPlot:
 
   # Find how many tips there are in a particular window
-  firsttip = tiptimes[0]
-  lasttip = tiptimes[-1]
+  firsttip_unix = tiptimes_unix[0]
+  lasttip_unix = tiptimes_unix[-1]
+  
 
   # Moving window times
   mwtimes = np.arange(start_time+dt/2., end_time, dt)
-  mwtimes_datetime = mwtimes.astype(datetime.datetime)
+  #mwtimes_datetime = mwtimes.astype(datetime.datetime)
+  mwtimes_unix = (mwtimes.astype(int)/1E6).astype(int)
   total_time_steps = (start_time - end_time) / dt
 
   print( "Constructing moving window" )
   next2percent = 0
   tipsInWin = []
   i = 0 # counter
-  for t in mwtimes:
-    tipswhen=[i for i in tiptimes if i> t-halfwin and i< t+halfwin]
-    tipsInWin.append(len(tipswhen))
-    if ((t-firsttip)/(lasttip-firsttip))*100 > next2percent:
-      print( next2percent, '%' )
-      next2percent = np.round((t-firsttip)*100/(lasttip-firsttip)) + 2
+  for t in mwtimes_unix:
+    tipsInWin.append( np.sum( (tiptimes_unix < (t+halfwin_seconds)) * (tiptimes_unix > (t-halfwin_seconds)) ) )
+    if ((t-firsttip_unix)/(lasttip_unix-firsttip_unix))*100 > next2percent:
+      print( int(next2percent), '%' )
+      next2percent = np.round((t-firsttip_unix)*100/(lasttip_unix-firsttip_unix)) + 2
     i += 1
   if next2percent <= 100:
     print( 100, '%' )
