@@ -312,10 +312,10 @@ if logger == 'hobo':
     _nbreaks_in_day = int(np.floor(1440. / dt_scalar_minutes))
     if _nbreaks_in_day <= 24:
       _possible_hours = np.arange(0, 24, 24/_nbreaks_in_day)
-      _starting_hour = np.max(_possible_hours
-                              [_possible_hours <= start_time.hour])
-      _ending_hour = np.min(_possible_hours
-                           [_possible_hours >= end_time.hour])
+      _starting_hour = int( np.max(_possible_hours
+                              [_possible_hours <= start_time.hour]) )
+      _ending_hour = int (np.min(_possible_hours
+                           [_possible_hours >= end_time.hour]) )
       start_time = start_time.replace(hour=_starting_hour, minute=0, second=0, 
                                       microsecond=0)
       end_time = end_time.replace(hour=_ending_hour, minute=0, second=0, 
