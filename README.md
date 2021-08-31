@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/41514382.svg)](https://zenodo.org/badge/latestdoi/41514382)
+
 # bucket-tip-rain-rate
 
 ***Converts time stamps from tipping bucket rain gauge bucket tips into a time series of rainfall intensities based on a moving window***
