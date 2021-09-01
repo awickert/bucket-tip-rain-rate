@@ -445,7 +445,7 @@ if outplot or outfile or displayPlot or waitplot or displayWaitPlot:
 
   # Moving window times
   mwtimes = np.arange(start_time+dt/2., end_time, dt)
-  #mwtimes_datetime = mwtimes.astype(datetime.datetime)
+  mwtimes_datetime = mwtimes.astype(datetime.datetime)
   mwtimes_unix = (mwtimes.astype(int)/1E6).astype(int)
   total_time_steps = (start_time - end_time) / dt
 
