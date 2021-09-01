@@ -35,6 +35,9 @@ parser.add_argument('-p', '--outplot', type=str, default=None,
                     help='output plot filename, including extension')
 parser.add_argument('-w', '--window', type=float, default=60,
                     help='smoothing window duration [minutes]')
+parser.add_argument('-n', '--waitplot', type=str, default=None,
+                    help='output filename for plot of waiting times between \
+                          tips, including extension')
 parser.add_argument('-t', '--ts', type=float,
                     default=argparse.SUPPRESS,
                     help='Time step for moving window; (defaults to window \
@@ -56,6 +59,8 @@ parser.add_argument('-r', '--rain-per-tip', type=float,
                     help='Amount of rain per bucket tip, for ALog data logger')
 parser.add_argument('-d', action='store_true',
                     help='Set flag to display plot')
+parser.add_argument('-g', action='store_true',
+                    help='Set flag to display waiting times between tips')
 
 args = parser.parse_args()
 
@@ -124,6 +129,10 @@ if type(args['window']) != list:
   window = args['window']
 else:
   window = args['window'][0]
+if type(args['waitplot']) != list:
+  waitplot = args['waitplot']
+else:
+  waitplot = args['waitplot'][0]
 try:
   if type(args['ts']) != list:
     dt = args['ts']
@@ -132,6 +141,7 @@ try:
 except:
   dt = window
 displayPlot = args['d']
+displayWaitPlot = args['g']
 
 #halfwin=np.timedelta64(datetime.timedelta(minutes=window/2.))
 #halfwin*=60
@@ -171,11 +181,11 @@ if logger == 'alog':
 # CHECK THAT AN OUTPUT OPTION IS SELECTED #
 ###########################################
 
-if outplot or outfile or tipfile or displayPlot:
+if outplot or outfile or tipfile or displayPlot or waitplot or displayWaitPlot:
   pass
 else:
   sys.exit("Please choose one or more output option:\n"+
-            "--outplot, --outfile, --tipfile, -d")
+            "--outplot, --waitplot, --outfile, --tipfile, -d, -g")
 
 print( "" )
 
@@ -370,11 +380,63 @@ mm_per_tip = rain_amount_per_tip * conversion_to_mm
   
 tiptimes_unix = (np.array(tiptimes).astype(int)/1E6).astype(int)
 
+
+############################################
+# STATISTICS OF WAITING TIMES BETWEEN TIPS #
+############################################
+
+# Use this to help decide what an appropriate window should be, and also to
+# gain some insights into the hydroclimate
+
+if waitplot or displayWaitPlot:
+  dt_minutes = np.diff(tiptimes_unix)/60.
+  hist = np.histogram(np.log(dt_minutes), 50) # 50 --> some f(n data)?
+  # Linear approx... not great.
+  _x_approx = (np.exp(hist[1])[1:] + np.exp(hist[1])[:-1])/2.
+  _y = hist[0].astype(float)/np.sum(hist[0])
+  plt.loglog(_x_approx, _y, 'o')
+  plt.xlabel('Waiting time between tips [minutes]', fontsize=18)
+  plt.ylabel('Fraction of tips in bin', fontsize=18)
+  plt.legend()
+  plt.tight_layout()
+  if waitplot:
+    plt.savefig(waitplot)
+
+"""
+# Hourly bins to define "events" -- Poisson or no (doesn't look like it above with just tips,
+# but what if there is a mini "non-event" between "events"
+t_tot = np.cumsum(dt_minutes)
+t_hourly = np.arange(timestamps[0].date(), timestamps[-1].date(), dt.timedelta(hours=1))
+t_events = []
+timestamps = np.array(timestamps)
+for i in range(len(t_hourly - 1)):
+    ntips = np.sum( (timestamps < t_hourly[i+1]) * (timestamps > t_hourly[i]) )
+    if ntips > 1:
+        t_events.append(t_hourly[i]) # time before, but just need dt, really
+
+dt_events = np.abs(np.diff(t_events)).astype(float)
+dt_events = dt_events[dt_events > np.min(dt_events)] # remove contiguous events
+
+hist = np.histogram(np.log(dt_events), 20)
+_x_approx = (np.exp(hist[1])[1:] + np.exp(hist[1])[:-1])/2.
+_y = hist[0].astype(float)/np.sum(hist[0])
+plt.loglog(_x_approx, _y, 'o', label=gauge_name)
+#plt.xlabel('Waiting time between tips [minutes]', fontsize=18)
+#plt.ylabel('Fraction of tips in bin', fontsize=18)
+#hist = np.histogram(dt_events, 1000)
+#plt.loglog( (hist[1][1:] + hist[1][:-1])/2., hist[0], 'ko' )
+plt.legend()
+plt.tight_layout()
+plt.show()
+"""
+
+
+
 #############
 # WINDOWING #
 #############
 
-if outplot or outfile or displayPlot:
+if outplot or outfile or displayPlot or waitplot or displayWaitPlot:
 
   # Find how many tips there are in a particular window
   firsttip_unix = tiptimes_unix[0]
@@ -461,6 +523,15 @@ if outplot or displayPlot:
   plt.tight_layout()
   if outplot:
     plt.savefig(outplot)
-  if displayPlot:
-    plt.show()
+
+##############
+# SHOW PLOTS #
+##############
+
+# Show (or close) all at once
+if displayPlot or displayWaitPlot:
+  plt.show()
+else:
+  plt.close('all')
+
 
